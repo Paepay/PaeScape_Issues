@@ -1,0 +1,26 @@
+name: Notify Discord bug bot
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send signed issue closure
+        env:
+          WEBHOOK_SECRET: ${{ secrets.DISCORD_BUG_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          signature=$(openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary < "$GITHUB_EVENT_PATH" | xxd -p -c 256)
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --silent --show-error \
+            -X POST 'https://paescape.online/discord-bot/github/webhook' \
+            -H 'content-type: application/json' \
+            -H 'x-github-event: issues' \
+            -H "x-hub-signature-256: sha256=$signature" \
+            --data-binary "@$GITHUB_EVENT_PATH"
